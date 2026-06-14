@@ -77,11 +77,18 @@ confirming firmware-owned PA), then `M84/G92/M220`. It reads
 `print_task_config['extruders_used']` but does not set it.
 
 So: **our export never populates `print_task_config`.** Temperatures and purge
-still work (we emit raw `M104`/moves), but the U1's value-add — predictive
-standby preheat (`SM_PRINT_EXTRUDER_PREHEAT`, gated on `extruders_used`),
-auto-feed, auto-unload, in-print flow/shaper calibration — does **not** engage
-for prints we slice, because that data is normally set by Snapmaker's own
-app/slicer via the native commands.
+still work (we emit raw `M104`/moves), and **predictive next-tool preheat is
+already handled engine-side** — OrcaSlicer 2.4 emits its own staged `M104` ahead
+of each tool change, enabled for the U1 in `fdm_process_U1.json`
+(`ooze_prevention=1, preheat_time=30`, commit e883e8fba8). So preheat is NOT the
+gap.
+
+What does NOT engage for prints we slice are the U1's *firmware-orchestrated*
+extras that key off `print_task_config`: auto-feed (`SM_PRINT_AUTO_FEED`),
+end-of-print auto-unload (`SM_PRINT_END_AUTO_UNLOAD_FILAMENT`), and in-print
+flow/input-shaper calibration — because that data is normally set by Snapmaker's
+own app/slicer via the native commands. (The firmware's own
+`SM_PRINT_EXTRUDER_PREHEAT` would also be redundant with our engine preheat.)
 
 To close it (non-faked: the printer still does the preheat, we only supply the
 truthful task config), the U1 machine start g-code should call, **before** the
