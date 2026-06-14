@@ -105,7 +105,16 @@ SET_PRINT_PREFERENCES ...       ; flow_calibrate / end_unload_filament / etc (op
 and sets `extruders_used[i]=True` for each; it raises a coded error if issued
 while `print_stats.state in (printing, paused)`, and persists to `print_task.json`.
 
-**Status: not wired in yet** — this requires building the comma-list from the
-slicer's `is_extruder_used[]` placeholders and **on-printer testing** (a
-malformed/late command raises a coded exception and aborts the job), so it must
-be verified live on a U1 before shipping in the default profile.
+**Do NOT put this in the slicer's `machine_start_gcode`.** Verified against the
+firmware: `print_stats.note_start()` sets `state="printing"` the moment the
+print file begins, so anything in `machine_start_gcode` runs *during* printing
+and `SET_PRINT_USED_EXTRUDERS` would be rejected (coded error) → aborted print.
+
+**Wired server-side instead (correct place).** The 3DPrintForge Server sends it
+via Moonraker BEFORE `/printer/print/start`:
+`server/moonraker-client.js` → `deriveUsedExtruders(meta)` (used tool indices
+from the file's per-tool filament weights, unit-tested) +
+`_u1PreparePrintTaskConfig()` (U1-only, best-effort,
+`SET_PRINT_USED_EXTRUDERS EXTRUDERS=<idx,..>` then start; never blocks the
+print). Server commit `60501234`. **Still needs live U1 verification** that
+auto-feed/auto-unload engage and nothing regresses.
