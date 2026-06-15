@@ -114,11 +114,27 @@ public:
         if (auto_queue)
             url += "&auto_queue=1";
 
+        // Authenticate with the stored login session so the upload works on
+        // dashboards that require auth (the server accepts the bambu_session
+        // cookie or a Bearer token). Empty when not signed in -> sent open,
+        // which is fine for an auth-disabled dashboard.
+        std::string auth_args;
+        if (AppConfig* cfg = wxGetApp().app_config) {
+            const std::string token = cfg->get("forge_session_token");
+            if (!token.empty()) {
+                auth_args = wxString::Format(
+                    " -H \"Cookie: bambu_session=%s\" -H \"Authorization: Bearer %s\"",
+                    wxString::FromUTF8(token.c_str()),
+                    wxString::FromUTF8(token.c_str())).ToStdString();
+            }
+        }
+
         // -k: accept the dashboard's self-signed cert. --data-binary @file
         // streams the raw bytes the upload endpoint expects.
         wxString cmd = wxString::Format(
-            "curl -ks -X POST \"%s\" --data-binary @\"%s\" --max-time 120",
+            "curl -ks -X POST \"%s\"%s --data-binary @\"%s\" --max-time 120",
             wxString::FromUTF8(url.c_str()),
+            wxString::FromUTF8(auth_args.c_str()),
             wxString::FromUTF8(file_path.c_str()));
 
         wxArrayString out, err;
